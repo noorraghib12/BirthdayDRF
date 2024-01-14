@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'accounts',
-    'birthday_bot'
+    'birthday_bot',
     'django.contrib.sites',
     'allauth',
     'allauth.account',
@@ -102,7 +102,6 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
 
@@ -151,10 +150,10 @@ REST_FRAMEWORK = {
     )
 }
 
-AUTHENTICATION_BACKENDS = {
-    "django.contrib.auth.backends.ModelBackend",
-    "allauth.accounts.auth_backends.AuthenticateBackend"
-}
+# AUTHENTICATION_BACKENDS = {
+#     "django.contrib.auth.backends.ModelBackend",
+#     "allauth.accounts.auth_backends.AuthenticateBackend"
+# }
 
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL= '/'
+# LOGIN_REDIRECT_URL = '/'
+# LOGOUT_REDIRECT_URL= '/'

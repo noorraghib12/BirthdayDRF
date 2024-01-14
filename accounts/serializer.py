@@ -44,14 +44,9 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             return {'message':"Invalid Credentials",'data':{}}
         
-        refresh=RefreshToken.for_user(user)
+        refresh=user.tokens()
         return  {
             'messsage':'Login Success!',
-            'data':{
-                'token':{
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                    }
-                }
+            'data':refresh
             }
 

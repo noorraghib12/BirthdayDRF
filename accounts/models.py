@@ -6,14 +6,17 @@ from django.dispatch import receiver
 import uuid
 from .manager import UserManager 
 import datetime
+from rest_framework_simplejwt.tokens import RefreshToken
+
+AUTH_PROVIDERS = {'google': 'google', 'email': 'email'}
+
 
 
 class User(AbstractUser):
-    username=models.CharField(max_length=200,unique=True)
     email = models.EmailField(unique=True)
-    is_verified = models.BooleanField(default=False)
-    email_verification_token = models.CharField(max_length=200 , null=True, blank=True)
-    
+    auth_provider = models.CharField(
+        max_length=255, blank=False,
+        null=False, default=AUTH_PROVIDERS.get('email'))
 
     # USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['email']
@@ -25,16 +28,14 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+    
+    def tokens(self):
+        refresh = RefreshToken.for_user(self)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token)
+        }
 
-class Profile(models.Model):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='profile')
-    credit = models.FloatField()
-    address = models.CharField(max_length=1000,blank=True)
-    profileimg = models.ImageField(upload_to='profile_images')
-
-
-    def __str__(self):
-        return self.user.email
 
 
 
