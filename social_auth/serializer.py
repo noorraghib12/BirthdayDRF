@@ -23,7 +23,7 @@ class GoogleSocialAuthSerializer(serializers.Serializer):
 
         if user_data['aud'] != os.environ.get('GOOGLE_CLIENT_ID'):
 
-            raise AuthenticationFailed('oops, who are you?')
+            raise AuthenticationFailed('Incorrect Credentials!')
 
         email = user_data['email']
         provider = 'google'
