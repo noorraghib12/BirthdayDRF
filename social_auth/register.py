@@ -4,7 +4,7 @@ from accounts.models import User
 import os
 import random
 from rest_framework.exceptions import AuthenticationFailed
-
+from rest_framework.response import Response
 
 
 
@@ -14,19 +14,19 @@ def register_social_user(provider, email):
 
     if filtered_user_by_email.exists():
 
-        if provider == filtered_user_by_email[0].auth_provider:
+        
+        registered_user = authenticate(
+            email=email, password=os.environ.get('SOCIAL_SECRET'))
 
-            registered_user = authenticate(
-                email=email, password=os.environ.get('SOCIAL_SECRET'))
+        if not registered_user:
+            raise  AuthenticationFailed("Invalid Credentials or AuthProvider !")
 
-            return {
-                'email': registered_user.email,
-                'tokens': registered_user.tokens()}
+        return {
+            'message': "Login Successful!",
+            'email': registered_user.email,
+            'tokens': registered_user.tokens()}
 
-        else:
-            raise AuthenticationFailed(
-                detail='Please continue your login using ' + filtered_user_by_email[0].auth_provider)
-
+        
     else:
         user = {
             'email': email,
