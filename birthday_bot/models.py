@@ -15,8 +15,8 @@ class UserQuery(models.Model):
     user= models.ForeignKey(User,on_delete=models.CASCADE)
     relation= models.CharField(max_length=200)
     question=models.TextField()
-    answer=models.CharField()
-    
+    answer=models.TextField()
+
     def __repr__(self):
         return self.user.email
 
