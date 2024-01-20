@@ -5,16 +5,15 @@ from dotenv import load_dotenv
 load_dotenv()
 import re
 from langchain.chains import RetrievalQAWithSourcesChain
-from langchain import OpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings, OpenAI
+from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.example_selector import SemanticSimilarityExampleSelector
 from datetime import datetime,timedelta
 from datetime import datetime
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
@@ -27,15 +26,30 @@ from typing import List
 import regex as re
 from PyPDF2 import PdfReader
 from langchain_community.document_loaders import Docx2txtLoader
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]=r'/home/raghib/Desktop/BirthdayDRF/birthday_bot/google_cred.json'
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"]=r'google_cred.json'
 from google.cloud import translate_v2 
-from langchain_community.document_loaders import Docx2txtLoader
+from itertools import repeat
 translate_model=translate_v2.Client()
 
 embeddings=OpenAIEmbeddings() 
 llm = OpenAI(model_name="text-davinci-003")
 
 
+
+def list_from_paragraph(response):
+    event_list=[]
+    for para in response:
+        date_,event_en=get_date(event=para['translatedText'],mode='input')
+        event_en=event_en.split('.')
+        event_bn=para['input'].split(':')[1]
+        event_bn_list=event_bn.split('। ')
+        event_list.extend(list(zip(
+            repeat(date_,len(event_bn_list)),
+            event_bn,
+            event_en)))
+        return event_list
+        
+        
 
 def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
 
@@ -58,10 +72,10 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
     
         split_patt=r'((?:January|February|March|April|July|August|September|November|December))'              
         text=re.sub(split_patt,r'{}\1'.format(deli_),text)
-        inp_list=text.split(deli_)
-
-        return [i.strip().replace('\n', r"") for i in inp_list]
-    
+        inp_list=[i for i in text.split(deli_) if len(i.split(':'))==2]
+        inp_pretranslate=[i.strip().replace('\n', r"") for i in inp_list]
+        inp_list_translated=translate_model.translate(inp_pretranslate)
+        return inp_list_translated
     else:
 
         extended_list=[]
@@ -105,13 +119,16 @@ def convert2days(string):
     tot_days=sum([res[key]*days_dict[key] for key in res.keys()])
     return timedelta(days=tot_days)
 
-def get_date(event):
-    if event:
+def get_date(event,mode):
+    if mode=='db' and event:
         date_str=(event[0].page_content).split(':')[0]
         date_str=date_str.split(" (")[0]
         return_date=datetime.strptime(date_str.strip(),"%B %d, %Y")
         return return_date
-
+    elif mode=='input':
+        date_,event_= event.split(':')
+        date_=date_.split(" (")[0]
+        return datetime.strptime(date_.strip(),"%B %d, %Y"),event_
     else:
         date_str=None
         return date_str
@@ -136,7 +153,7 @@ class eventDetails(BaseModel):
     before_after:str =Field(description="Whether the birth of the person in question happened before or after the event")
     event: str = Field(description="Description of the event related to the person's birthday")
 
-    @validator('time_span')
+    @validator('time_span',allow_reuse=True)
     def span_validate(cls,field):
         return convert2days(field)
 
@@ -168,7 +185,7 @@ def get_main_chain(db:Chroma=db):
             'delta': lambda x: convert2days(x['time_span']),
             'before_after':lambda x:x['before_after']    
         }
-    ) | RunnablePassthrough.assign(event_date=lambda x:get_date(x['retrieved'])) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
+    ) | RunnablePassthrough.assign(event_date=lambda x:get_date(x['retrieved'],mode='db')) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
 
 
 

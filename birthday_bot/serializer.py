@@ -32,7 +32,7 @@ class UploadSerializer(serializers.Serializer):
             return data
 
     def create(self,validated_data):
-        f_path = get_upload_path(get_save_path(validated_data))
+        f_path = get_upload_path(self.get_save_path(validated_data))
         validated_data.get('file').save(f_path)
         return validated_data
 
