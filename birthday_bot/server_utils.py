@@ -31,23 +31,52 @@ from google.cloud import translate_v2
 from itertools import repeat
 translate_model=translate_v2.Client()
 
+def split_bengali_sentences(text):
+    # Define the regex pattern
+    sentence_pattern = r'(?:[।?!]|[\n\r])+[\s\u200B]*|[\n\r]+'
+
+    # Apply the regex pattern to split sentences
+    sentences = re.split(sentence_pattern, text)
+
+    # Remove any empty strings from the list
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+
+    return sentences
+
+
+def split_date_text(text):
+    sentence_pattern = r'(?<=[0-9]{4}):'
+    date_,event_ = re.split(sentence_pattern, text)
+    date_=datetime.strptime(date_.strip(),"%B %d, %Y")
+    return date_,event_
+
+
+
 embeddings=OpenAIEmbeddings() 
 llm = OpenAI(model_name="text-davinci-003")
+
+
+
 
 
 
 def list_from_paragraph(response):
     event_list=[]
     for para in response:
-        date_,event_en=get_date(event=para['translatedText'],mode='input')
-        event_en=event_en.split('.')
+    
+        print(para['translatedText'].split(':'))
+        print(split_date_text(para['translatedText']))
+        date_,event_en=split_date_text(para['translatedText'])
+        event_en=[i for i in event_en.split('.') if len(i)!=0]
         event_bn=para['input'].split(':')[1]
-        event_bn_list=event_bn.split('। ')
-        event_list.extend(list(zip(
-            repeat(date_,len(event_bn_list)),
-            event_bn,
-            event_en)))
-        return event_list
+        event_bn_list=split_bengali_sentences(event_bn)
+        event_list.append(
+            {'date':date_,
+            'event_bn':event_bn_list,
+            'event_en':event_en
+            })
+
+    return event_list
         
         
 
@@ -55,7 +84,7 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
 
 
     if isinstance(pdf_path,str):
-        if 'pdf' in pdf_path[-4:]:
+        if pdf_path.endswith('pdf'):
             reader=PdfReader(pdf_path)
             text=""
             for page in reader.pages:
@@ -75,7 +104,7 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
         inp_list=[i for i in text.split(deli_) if len(i.split(':'))==2]
         inp_pretranslate=[i.strip().replace('\n', r"") for i in inp_list]
         inp_list_translated=translate_model.translate(inp_pretranslate)
-        return inp_list_translated
+        return list_from_paragraph(inp_list_translated)
     else:
 
         extended_list=[]
@@ -126,12 +155,11 @@ def get_date(event,mode):
         return_date=datetime.strptime(date_str.strip(),"%B %d, %Y")
         return return_date
     elif mode=='input':
+               
         date_,event_= event.split(':')
-        date_=date_.split(" (")[0]
         return datetime.strptime(date_.strip(),"%B %d, %Y"),event_
     else:
-        date_str=None
-        return date_str
+        return None
     
 
 

@@ -31,6 +31,7 @@ class FileUploadView(views.APIView):
             save_uploaded_file(file=file,destination=up_dir)
             doc_paths.append(up_dir)
             text=regex_text_splitter(doc_paths)
+
         # do some stuff with uploaded file
         return response.Response(text,status=204)
 
