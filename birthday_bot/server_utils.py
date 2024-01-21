@@ -29,8 +29,29 @@ from langchain_community.document_loaders import Docx2txtLoader
 # os.environ["GOOGLE_APPLICATION_CREDENTIALS"]=r'google_cred.json'
 from google.cloud import translate_v2 
 from itertools import repeat
+from bltk.langtools import Tokenizer as BnTokenizer
+import regex as re
+import concurrent
 translate_model=translate_v2.Client()
+bn_tokenizer = BnTokenizer()
+embeddings=OpenAIEmbeddings() 
+llm = OpenAI(model_name="text-davinci-003")
 
+
+def fetch_bangla_text(str_):
+    n=str_.find(':')
+    return (str_[:n],str_[n+1:])
+
+
+
+def split_date_text(elem):
+    if isinstance(elem,str):
+        colon_pat=r'(?<=(?:January|February|March|April|July|August|September|November|December).*[0-9]{4}):'
+        # return re.split(colon_pat,elem)
+        date_,events_=re.split(colon_pat,elem)
+        return date_,events_
+
+        
 def split_bengali_sentences(text):
     # Define the regex pattern
     sentence_pattern = r'(?:[।?!]|[\n\r])+[\s\u200B]*|[\n\r]+'
@@ -41,50 +62,82 @@ def split_bengali_sentences(text):
     # Remove any empty strings from the list
     sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
 
-    return sentences
-
-
-def split_date_text(text):
-    sentence_pattern = r'(?<=[0-9]{4}):'
-    date_,event_ = re.split(sentence_pattern, text)
-    date_=datetime.strptime(date_.strip(),"%B %d, %Y")
-    return date_,event_
+    return sentences  
 
 
 
-embeddings=OpenAIEmbeddings() 
-llm = OpenAI(model_name="text-davinci-003")
+def bangla_in_query_check(query):
+    init_len=len(query)
+    bn_in_query="".join(i for i in query if i in ["।"] or 2432 <= ord(i) <= 2559 or ord(i)== 32)
+    if len(bn_in_query)<0.10*init_len:
+        return 'english'
+    elif len(bn_in_query)>=0.80*init_len:
+        return 'bangla'
+        
+    else:
+        raise ValueError('Please make sure query is in either Bengali or English or a sentence with majority English or Bengali.')
+    
 
+
+# with concurrent.futures.ThreadPoolExecutor() as executor:
+#     futures = []
+#     for url in wiki_page_urls:
+#         futures.append(executor.submit(get_wiki_page_existence, wiki_page_url=url))
+#     for future in concurrent.futures.as_completed(futures):
+#         print(future.result())
+
+
+def para_translate(para):
+    date_,events_bn=fetch_bangla_text(para)
+    events_bn=split_bengali_sentences(events_bn)
+    return translate_model.translate([date_]+events_bn)
 
 
 
 
 
 def list_from_paragraph(response):
-    event_list=[]
-    for para in response:
     
-        print(para['translatedText'].split(':'))
-        print(split_date_text(para['translatedText']))
-        date_,event_en=split_date_text(para['translatedText'])
-        event_en=[i for i in event_en.split('.') if len(i)!=0]
-        event_bn=para['input'].split(':')[1]
-        event_bn_list=split_bengali_sentences(event_bn)
-        event_list.append(
-            {'date':date_,
-            'event_bn':event_bn_list,
-            'event_en':event_en
-            })
+    event_list=[]
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures=[]
+        for para in response:
+            futures.append(executor.submit(para_translate,para=para))
 
+    for future in concurrent.futures.as_completed(futures):
+        inp_list_translated=future.result()
+        date_=inp_list_translated[0]['translatedText']
+        event_bn=[i['input'] for i in inp_list_translated[1:]]
+        event_en=[i['translatedText'] for i in inp_list_translated[1:]]
+        for i in range(len(event_bn)):
+            
+        # date_,events_en,events_bn=inp_list_translated['translatedText'][0],inp_list_translated['translatedText'][1:],inp_list_translated['input'][1:]
+
+
+        
+        
+        # date_,event_en=split_date_text(para['translatedText'])
+        # event_en=[i for i in event_en.split('.') if len(i)!=0]
+        # event_bn=fetch_bangla_text(para['input'])[1]
+        # event_bn_list=split_bengali_sentences(event_bn)
+            event_list.append(
+                {'date':date_,
+                'event_bn':event_bn[i],
+                'event_en':event_en[i],
+                }
+            )
+        if not event_list[-1]['same_parse']:
+            event_list[-1]['diff']=para['input']
     return event_list
         
-        
+
+
 
 def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
 
 
     if isinstance(pdf_path,str):
-        if pdf_path.endswith('pdf'):
+        if 'pdf' in pdf_path[-4:]:
             reader=PdfReader(pdf_path)
             text=""
             for page in reader.pages:
@@ -99,12 +152,14 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
             for page in data:
                 text+=page.page_content
     
-        split_patt=r'((?:January|February|March|April|July|August|September|November|December))'              
+        split_patt=r'((?:জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|জুলাই|আগস্ট|সেপ্টেম্বর|নভেম্বর|ডিসেম্বর))'              
         text=re.sub(split_patt,r'{}\1'.format(deli_),text)
-        inp_list=[i for i in text.split(deli_) if len(i.split(':'))==2]
+        inp_list=[i.strip() for i in text.split(deli_) if (i.strip() and i.find(':')!=-1)]
+        
         inp_pretranslate=[i.strip().replace('\n', r"") for i in inp_list]
-        inp_list_translated=translate_model.translate(inp_pretranslate)
-        return list_from_paragraph(inp_list_translated)
+        # inp_list_translated=translate_model.translate(inp_pretranslate)
+        final_list=list_from_paragraph(inp_pretranslate)
+        return final_list
     else:
 
         extended_list=[]
@@ -155,11 +210,12 @@ def get_date(event,mode):
         return_date=datetime.strptime(date_str.strip(),"%B %d, %Y")
         return return_date
     elif mode=='input':
-               
         date_,event_= event.split(':')
+        date_=date_.split(" (")[0]
         return datetime.strptime(date_.strip(),"%B %d, %Y"),event_
     else:
-        return None
+        date_str=None
+        return date_str
     
 
 

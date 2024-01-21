@@ -7,8 +7,9 @@ from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from .server_utils import regex_text_splitter
 def get_upload_path(filename):
-    dir_=os.getcwd()
-    return os.path.join(settings.STATIC_URL[1:],"uploads",filename)     
+    uploads_path=os.path.join(settings.STATIC_URL[1:],"uploads")
+    os.makedirs(uploads_path,exist_ok=True)
+    return os.path.join(uploads_path,filename)     
 
 
 def save_uploaded_file(file: InMemoryUploadedFile, destination: str):

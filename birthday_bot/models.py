@@ -1,15 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
-# from pgvector.django import VectorField
-# # Create your models here.
+from pgvector.django import VectorField
+# Create your models here.
 
 
 
-# class Events(models.Model):
-#     event_date=models.DateField()
-#     english_text=models.TextField()
-#     bengali_text=models.TextField()
-#     vector=VectorField(dimensions=1536)
+class Events(models.Model):
+    event_date=models.DateField()
+    english_text=models.TextField()
+    bengali_text=models.TextField()
+    vector=VectorField(dimensions=1536)
 
 class UserQuery(models.Model):
     user= models.ForeignKey(User,on_delete=models.CASCADE)
