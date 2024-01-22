@@ -296,13 +296,13 @@ db = PGVector(
 # db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
 
 
-def get_main_chain(db=None):
+def get_main_chain():
     retriever=db.as_retriever(search_type='similarity_score_threshold',search_kwargs={'score_threshold':0.75, 'k':1})
     model=ChatOpenAI().bind(functions=functions) 
     event_bool_chain= event_verify_prompt | llm | bool_parse
     chain2= json_parser | RunnableMap(
         {
-            'retrieved': lambda x: retriever.get_relevant_documents(x['event']),
+            'retrieved': lambda x: get_relevant_documents(x['event']),
             "queried": lambda x: x['event'],
             'delta': lambda x: convert2days(x['time_span']),
             'before_after':lambda x:x['before_after']    

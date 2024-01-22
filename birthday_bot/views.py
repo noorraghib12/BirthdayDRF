@@ -1,11 +1,21 @@
 from django.shortcuts import render
-from rest_framework import views,parsers,response,status
+from rest_framework import views,parsers,response,status,permissions
 from rest_framework import generics
 from .serializer import *
 # Create your views here.
 from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from .server_utils import regex_text_splitter
+from django.db.models import Func, F, Window
+from django.db.models.functions import TruncDate
+from django.db.models import Window
+import random
+from django.db import models
+
+
+
+
+
 def get_upload_path(filename):
     uploads_path=os.path.join(settings.STATIC_URL[1:],"uploads")
     os.makedirs(uploads_path,exist_ok=True)
@@ -49,9 +59,64 @@ class FileUploadView(views.APIView):
 #         serialized.save()
 #         return response.Response(serialized.data,status=status.HTTP_201_CREATED)     
 
-# class EventsViewSet(ModelViewSet):
-#     queryset=Events.objects.all()
-#     serializer_class=EventsSerializer
-#     def create(self,request,*args,**kwargs):
-
+class EventsViewSet(generics.CreateAPIView):
+    queryset=Events.objects.all()
+    serializer_class=EventsSerializer
     
+    def create(self,request,*args,**kwargs):
+        serializer=serializer_class(data=request.data,many=True)
+        serializer.is_valid(raise_exceptions=True)
+        serializer.save()
+
+class Random(models.Func):
+    function = 'RANDOM'
+
+
+class GetRandomCalenderEvent(views.APIView):    
+    
+    def get(self,request):
+        try:
+            events_per_day = 2
+
+            events = Event.objects.annotate(
+                date_truncated=TruncDate('date'),
+                event_random=Random(),
+                event_rank=Window(
+                    expression=F('event_random'),
+                    partition_by=[TruncDate('date')],
+                    order_by=F('event_random').asc()
+                )
+            ).filter(
+                event_rank__lte=events_per_day
+            ).order_by('date')
+            
+            events=EventsSerializer(events,many=True)
+            return response.Response(data=events.data,status=status.HTTP_200_OK)
+        except Exception as e:
+            return response.Response({'error':e},status=status.HTTP_400_BAD_REQUEST)
+            
+                
+class QueryAPI(generics.ListCreateAPIView):
+    queryset=UserQuery.objects.all()
+    serializer_class=QuerySerializer
+    permission_classes=[permissions.IsAuthenticated]
+    def create(self,request,*args,**kwargs):
+        data=request.data.copy()
+        serialized=serializer_class(data=data)
+        serialized.is_valid(raise_exceptions=True)
+        serialized.save()
+        return response.Response(
+            data={
+                serialized['relation'],
+                serialized['answer']
+                },
+            status=status.HTTP_201_CREATED
+            )
+
+
+    def list(self,request, *args, **kwargs):
+        list_queries=queryset.filter(user=request.user).order_by('-created_at').limit(10)
+        serialized=serializer_class(list_queries)
+        return response.Response(serialized.data,status=status.HTTP_202_ACCEPTED)
+
+

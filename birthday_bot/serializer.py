@@ -44,13 +44,16 @@ class UploadSerializer(serializers.Serializer):
         validated_data.get('file').save(f_path)
         return validated_data
 
-#chain=get_main_chain
+chain=get_main_chain()
 
 
 class EventsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Events
         fields = '__all__'
+        extra_kwargs = {
+            'embedding':{'write_only':True}
+        }
 
 class QuerySerializer(serializers.ModelSerializer):
     user=UserSerializer()
@@ -59,12 +62,12 @@ class QuerySerializer(serializers.ModelSerializer):
         fields = ['user','relation','question','answer']
 
     def validate(self,data):
-        pass
-        # data['answer']=data.get('answer',None)
-        # if data['answer'] is None:
-        #     data['answer']=chain.invoke(data['question'])
-        # return data
-         
+        data['answer']=data.get('answer',None)
+        if data['answer'] is None:
+            data['answer']=chain.invoke(data['question'])
+        return data
+    
+                     
             
             
 
