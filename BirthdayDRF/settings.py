@@ -87,6 +87,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'BirthdayDRF.wsgi.application'
 
 import os
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 

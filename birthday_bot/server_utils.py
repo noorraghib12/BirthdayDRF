@@ -5,15 +5,16 @@ from dotenv import load_dotenv
 load_dotenv()
 import re
 from langchain.chains import RetrievalQAWithSourcesChain
-from langchain_openai import OpenAIEmbeddings, OpenAI
-from langchain_community.vectorstores import Chroma
+from langchain.llms import OpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.example_selector import SemanticSimilarityExampleSelector
 from datetime import datetime,timedelta
 from datetime import datetime
-from langchain_community.chat_models import ChatOpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
@@ -32,10 +33,11 @@ from itertools import repeat
 from bltk.langtools import Tokenizer as BnTokenizer
 import regex as re
 import concurrent
+from django.conf import settings
 translate_model=translate_v2.Client()
 bn_tokenizer = BnTokenizer()
 embeddings=OpenAIEmbeddings() 
-llm = OpenAI(model_name="text-davinci-003")
+llm = ChatOpenAI(model_name="gpt-3.5-turbo-1106")
 
 
 def fetch_bangla_text(str_):
@@ -95,6 +97,15 @@ def para_translate(para):
 
 
 
+def events_vectorized(event_list):
+            event_en_list=[i['event_en'] for i in event_list]
+            event_vectors=embeddings.embed_documents(event_en_list)
+            for d_,vector in zip(event_list,event_vectors):
+                d_['vector']=vector
+            return event_list    
+
+
+
 
 def list_from_paragraph(response):
     
@@ -107,6 +118,10 @@ def list_from_paragraph(response):
     for future in concurrent.futures.as_completed(futures):
         inp_list_translated=future.result()
         date_=inp_list_translated[0]['translatedText']
+        try:
+            date_= datetime.strptime(date_.strip(),"%B %d, %Y")
+        except ValueError:
+            continue
         event_bn=[i['input'] for i in inp_list_translated[1:]]
         event_en=[i['translatedText'] for i in inp_list_translated[1:]]
         for i in range(len(event_bn)):
@@ -126,15 +141,16 @@ def list_from_paragraph(response):
                 'event_en':event_en[i],
                 }
             )
-        if not event_list[-1]['same_parse']:
-            event_list[-1]['diff']=para['input']
-    return event_list
+                
+    
+            
+    return events_vectorized(event_list)
         
 
 
-
+import time
 def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
-
+    start=time.time()
 
     if isinstance(pdf_path,str):
         if 'pdf' in pdf_path[-4:]:
@@ -164,8 +180,9 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
 
         extended_list=[]
         for pdf in pdf_path:
-            extended_list.extend(regex_text_splitter(pdf,deli_=deli_))
-    
+            regex_text=regex_text_splitter(pdf,deli_=deli_)
+            extended_list.extend(regex_text)
+            
         return extended_list
     
 
@@ -253,12 +270,33 @@ prompt=ChatPromptTemplate.from_messages([
 
 json_parser=JsonOutputFunctionsParser()
 
+
+
+
+from langchain.vectorstores.pgvector import DistanceStrategy
 #chain for extracting birthdays from queries and retrieved documents
-vectorstore_dir="./static/vectorstore_db"
-db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
+db_conf=settings.DATABASES['default']
+user=db_conf['USER']
+password=db_conf['PASSWORD']
+host=db_conf['HOST']
+port=db_conf['PORT']
+dbname=db_conf['NAME']
+
+COLLECTION_NAME='events'
+CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
+db = PGVector(
+    collection_name=COLLECTION_NAME,
+    connection_string=CONNECTION_STRING,
+    embedding_function=embeddings,
+    distance_strategy = DistanceStrategy.COSINE,
+)
 
 
-def get_main_chain(db:Chroma=db):
+
+# db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
+
+
+def get_main_chain(db=None):
     retriever=db.as_retriever(search_type='similarity_score_threshold',search_kwargs={'score_threshold':0.75, 'k':1})
     model=ChatOpenAI().bind(functions=functions) 
     event_bool_chain= event_verify_prompt | llm | bool_parse

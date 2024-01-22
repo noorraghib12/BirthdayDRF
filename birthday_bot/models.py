@@ -6,19 +6,19 @@ from pgvector.django import VectorField
 
 
 class Events(models.Model):
-    event_date=models.DateField()
-    english_text=models.TextField()
-    bengali_text=models.TextField()
+    date=models.DateField()
+    event_en=models.TextField()
+    event_bn=models.TextField()
     vector=VectorField(dimensions=1536)
 
 class UserQuery(models.Model):
     user= models.ForeignKey(User,on_delete=models.CASCADE)
     relation= models.CharField(max_length=200)
     question=models.TextField()
-    answer=models.TextField()
+    answer=models.TextField(default=None)
 
     def __repr__(self):
-        return self.user.email
+        return f"Email:{self.user.email} [Question:{self.question}]" 
 
 
 

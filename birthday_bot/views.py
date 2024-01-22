@@ -32,6 +32,7 @@ class FileUploadView(views.APIView):
             save_uploaded_file(file=file,destination=up_dir)
             doc_paths.append(up_dir)
             text=regex_text_splitter(doc_paths)
+            
 
         # do some stuff with uploaded file
         return response.Response(text,status=204)
@@ -48,3 +49,9 @@ class FileUploadView(views.APIView):
 #         serialized.save()
 #         return response.Response(serialized.data,status=status.HTTP_201_CREATED)     
 
+# class EventsViewSet(ModelViewSet):
+#     queryset=Events.objects.all()
+#     serializer_class=EventsSerializer
+#     def create(self,request,*args,**kwargs):
+
+    
