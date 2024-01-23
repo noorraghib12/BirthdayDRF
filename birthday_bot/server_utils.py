@@ -34,6 +34,9 @@ from bltk.langtools import Tokenizer as BnTokenizer
 import regex as re
 import concurrent
 from django.conf import settings
+from .models import *
+from .serializer import *
+
 translate_model=translate_v2.Client()
 bn_tokenizer = BnTokenizer()
 embeddings=OpenAIEmbeddings() 
@@ -97,12 +100,10 @@ def para_translate(para):
 
 
 
-def events_vectorized(event_list):
-            event_en_list=[i['event_en'] for i in event_list]
-            event_vectors=embeddings.embed_documents(event_en_list)
-            for d_,vector in zip(event_list,event_vectors):
-                d_['vector']=vector
-            return event_list    
+def events_vectorized(event):
+            embedding=embeddings.embed_query(event['event_en'])
+            event['embedding']=embedding
+            return event    
 
 
 
@@ -110,7 +111,7 @@ def events_vectorized(event_list):
 def list_from_paragraph(response):
     
     event_list=[]
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(response))) as executor:
         futures=[]
         for para in response:
             futures.append(executor.submit(para_translate,para=para))
@@ -119,7 +120,7 @@ def list_from_paragraph(response):
         inp_list_translated=future.result()
         date_=inp_list_translated[0]['translatedText']
         try:
-            date_= datetime.strptime(date_.strip(),"%B %d, %Y")
+            date_= datetime.strptime(date_.strip(),"%B %d, %Y").date()
         except ValueError:
             continue
         event_bn=[i['input'] for i in inp_list_translated[1:]]
@@ -141,10 +142,13 @@ def list_from_paragraph(response):
                 'event_en':event_en[i],
                 }
             )
-                
-    
-            
-    return events_vectorized(event_list)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(event_list))) as executor:
+        futures=[]
+        for event in event_list:
+            futures.append(executor.submit(events_vectorized,event))
+
+    final_events=[future.result() for future in concurrent.futures.as_completed(futures)]           
+    return final_events
         
 
 
@@ -187,15 +191,15 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
     
 
 
-class eventBoolRetrieve(BaseModel):
-    event_truth: bool =Field(description="Validatition of whether the Alleged Event ever truly occured according to the given list of Historical Events")
-    event_date: datetime =Field(description= "The date fetched from the retrieved event")
+# class eventBoolRetrieve(BaseModel):
+#     event_truth: bool =Field(description="Validatition of whether the Alleged Event ever truly occured according to the given list of Historical Events")
+#     event_date: datetime =Field(description= "The date fetched from the retrieved event")
     
-    @model_validator(mode='after')
-    def vali_date(self):
-        if self.event_truth==False:
-            self.event_date=None
-        return self
+#     @model_validator(mode='after')
+#     def vali_date(self):
+#         if self.event_truth==False:
+#             self.event_date=None
+#         return self
 
 
 event_verify_prompt=PromptTemplate(template="""Each sentence is a specific historical event in the Historical Events. Given the list of historical events, determine if the alleged event ever truly occurred. Answer only in boolean format. If you're not sure, just reply with 'False'.
@@ -272,8 +276,7 @@ json_parser=JsonOutputFunctionsParser()
 
 
 
-
-from langchain.vectorstores.pgvector import DistanceStrategy
+from pgvector.django import CosineDistance
 #chain for extracting birthdays from queries and retrieved documents
 db_conf=settings.DATABASES['default']
 user=db_conf['USER']
@@ -284,30 +287,40 @@ dbname=db_conf['NAME']
 
 COLLECTION_NAME='events'
 CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
-db = PGVector(
-    collection_name=COLLECTION_NAME,
-    connection_string=CONNECTION_STRING,
-    embedding_function=embeddings,
-    distance_strategy = DistanceStrategy.COSINE,
-)
+# db = PGVector(
+#     collection_name=COLLECTION_NAME,r
+#     connection_string=CONNECTION_STRING,
+#     embedding_function=embeddings,
+#     distance_strategy = DistanceStrategy.COSINE,
+# )
 
 
 
-# db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
+# # db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
+
+def pgretriever(text,embeddings=embeddings):
+    embedding=embeddings.embed_query(text=text)
+    queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.2).order_by('distance')[:1]
+    if not queryset:
+        return []
+    else:
+        serialized=EventsSerializer(queryset)
+        return {'retrieved':serialized.data['event_en'],
+                'date':serialized.data['date']                
+                }
 
 
-def get_main_chain():
-    retriever=db.as_retriever(search_type='similarity_score_threshold',search_kwargs={'score_threshold':0.75, 'k':1})
+def get_main_chain(retriever=pgretriever):
     model=ChatOpenAI().bind(functions=functions) 
     event_bool_chain= event_verify_prompt | llm | bool_parse
     chain2= json_parser | RunnableMap(
         {
-            'retrieved': lambda x: get_relevant_documents(x['event']),
+            'retrieved': lambda x: retriever(text=x['event']),
             "queried": lambda x: x['event'],
             'delta': lambda x: convert2days(x['time_span']),
             'before_after':lambda x:x['before_after']    
         }
-    ) | RunnablePassthrough.assign(event_date=lambda x:get_date(x['retrieved'],mode='db')) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
+    ) | RunnablePassthrough.assign(event_date=lambda x:x['retrieved']['date'],retrieved=lambda x:x['retrieved']['retrieved']) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
 
 
 

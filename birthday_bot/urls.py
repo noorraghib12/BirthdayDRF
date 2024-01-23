@@ -25,10 +25,10 @@ from rest_framework_simplejwt.views import (
 
 
 
-
 urlpatterns = [
     
     path('upload/',FileUploadView.as_view()),
     # path('accounts/',include('allauth.urls'))
-
+    # path('question/',QueryAPI.as_view()),
+    path('get_calender/',GetRandomCalenderEvent.as_view())
 ]

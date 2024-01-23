@@ -12,8 +12,8 @@ from BirthdayDRF import settings
 from PyPDF2 import PdfReader
 from rest_framework import serializers
 from .models import *
-from server_utils import get_main_chain
-
+import datetime
+# from .server_utils import get_main_chain
 
 def get_upload_path(filename):
     return os.path.join(settings.STATIC_URL,"uploads",filename)     
@@ -44,7 +44,13 @@ class UploadSerializer(serializers.Serializer):
         validated_data.get('file').save(f_path)
         return validated_data
 
-chain=get_main_chain()
+
+
+
+
+
+
+
 
 
 class EventsSerializer(serializers.ModelSerializer):
@@ -55,18 +61,25 @@ class EventsSerializer(serializers.ModelSerializer):
             'embedding':{'write_only':True}
         }
 
-class QuerySerializer(serializers.ModelSerializer):
-    user=UserSerializer()
-    class Meta:
-        model=UserQuery
-        fields = ['user','relation','question','answer']
-
     def validate(self,data):
-        data['answer']=data.get('answer',None)
-        if data['answer'] is None:
-            data['answer']=chain.invoke(data['question'])
+        if isinstance(data['date'],datetime.datetime):
+            data['date']=data['date'].date()
         return data
-    
+
+
+
+# chain=get_main_chain()
+# class QuerySerializer(serializers.ModelSerializer):
+#     user=UserSerializer()
+#     class Meta:
+#         model=UserQuery
+#         fields = ['user','relation','question','answer']
+
+#     def validate(self,data):
+#         data['answer']=data.get('answer',None)
+#         if data['answer'] is None:
+#             data['answer']=chain.invoke(data['question'])
+#         return data
                      
             
             

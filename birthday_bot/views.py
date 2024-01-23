@@ -34,18 +34,20 @@ def save_uploaded_file(file: InMemoryUploadedFile, destination: str):
 
 class FileUploadView(views.APIView):
     parser_classes = (parsers.MultiPartParser,)
-
+    serializer_class=EventsSerializer
     def post(self, request, format=None):
         doc_paths=[] 
         for file in request.FILES.getlist('file'):
             up_dir=get_upload_path(file.name)
             save_uploaded_file(file=file,destination=up_dir)
             doc_paths.append(up_dir)
-            text=regex_text_splitter(doc_paths)
-            
+        events=regex_text_splitter(doc_paths)
+        serializer=self.serializer_class(data=events,many=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()            
 
         # do some stuff with uploaded file
-        return response.Response(text,status=204)
+        return response.Response(serializer.data,status=204)
 
 
 
@@ -59,16 +61,9 @@ class FileUploadView(views.APIView):
 #         serialized.save()
 #         return response.Response(serialized.data,status=status.HTTP_201_CREATED)     
 
-class EventsViewSet(generics.CreateAPIView):
-    queryset=Events.objects.all()
-    serializer_class=EventsSerializer
-    
-    def create(self,request,*args,**kwargs):
-        serializer=serializer_class(data=request.data,many=True)
-        serializer.is_valid(raise_exceptions=True)
-        serializer.save()
 
-class Random(models.Func):
+
+class Random(Func):
     function = 'RANDOM'
 
 
@@ -76,47 +71,46 @@ class GetRandomCalenderEvent(views.APIView):
     
     def get(self,request):
         try:
+            # Specify the number of events you want per day
             events_per_day = 2
 
-            events = Event.objects.annotate(
-                date_truncated=TruncDate('date'),
-                event_random=Random(),
+            # Truncate the date field to get the day
+            events = Events.objects.annotate(
+                date_truncated=TruncDate('date')
+            ).order_by('date').annotate(
                 event_rank=Window(
-                    expression=F('event_random'),
-                    partition_by=[TruncDate('date')],
-                    order_by=F('event_random').asc()
+                    expression=F('date'),  # or any other field you want to order by
+                    partition_by=['date_truncated'],
+                    order_by=F('date').asc()  # or any other field you want to order by
                 )
             ).filter(
                 event_rank__lte=events_per_day
             ).order_by('date')
-            
-            events=EventsSerializer(events,many=True)
-            return response.Response(data=events.data,status=status.HTTP_200_OK)
+
+            return response.Response(data=events.values(), status=status.HTTP_200_OK)
         except Exception as e:
-            return response.Response({'error':e},status=status.HTTP_400_BAD_REQUEST)
-            
-                
-class QueryAPI(generics.ListCreateAPIView):
-    queryset=UserQuery.objects.all()
-    serializer_class=QuerySerializer
-    permission_classes=[permissions.IsAuthenticated]
-    def create(self,request,*args,**kwargs):
-        data=request.data.copy()
-        serialized=serializer_class(data=data)
-        serialized.is_valid(raise_exceptions=True)
-        serialized.save()
-        return response.Response(
-            data={
-                serialized['relation'],
-                serialized['answer']
-                },
-            status=status.HTTP_201_CREATED
-            )
+            raise e
+# class QueryAPI(generics.ListCreateAPIView):
+#     queryset=UserQuery.objects.all()
+#     serializer_class=QuerySerializer
+#     permission_classes=[permissions.IsAuthenticated]
+#     def create(self,request,*args,**kwargs):
+#         data=request.data.copy()
+#         serialized=self.serializer_class(data=data)
+#         serialized.is_valid(raise_exceptions=True)
+#         serialized.save()
+#         return response.Response(
+#             data={
+#                 serialized['relation'],
+#                 serialized['answer']
+#                 },
+#             status=status.HTTP_201_CREATED
+#             )
 
 
-    def list(self,request, *args, **kwargs):
-        list_queries=queryset.filter(user=request.user).order_by('-created_at').limit(10)
-        serialized=serializer_class(list_queries)
-        return response.Response(serialized.data,status=status.HTTP_202_ACCEPTED)
+#     def list(self,request, *args, **kwargs):
+#         list_queries=self.queryset.filter(user=request.user).order_by('-created_at').limit(10)
+#         serialized=self.serializer_class(list_queries)
+#         return response.Response(serialized.data,status=status.HTTP_202_ACCEPTED)
 
 
