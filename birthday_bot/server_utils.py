@@ -33,6 +33,8 @@ from itertools import repeat
 import regex as re
 import concurrent
 from django.conf import settings
+from .models import Events
+from pgvector.django import CosineDistance
 translate_model=translate_v2.Client()
 
 embeddings=OpenAIEmbeddings() 
@@ -104,7 +106,7 @@ async def events_vectorized(event_list):
             event_en_list=[i['event_en'] for i in event_list]
             event_vectors= await embeddings.aembed_documents(event_en_list)
             for d_,vector in zip(event_list,event_vectors):
-                d_['vector']=vector
+                d_['embedding']=vector
             return event_list    
 
 
@@ -122,7 +124,7 @@ def list_from_paragraph(response):
         inp_list_translated=future.result()
         date_=inp_list_translated[0]['translatedText']
         try:
-            date_= datetime.strptime(date_.strip(),"%B %d, %Y")
+            date_= datetime.strptime(date_.strip(),"%B %d, %Y").date()
         except ValueError:
             continue
         event_bn=[i['input'] for i in inp_list_translated[1:]]
@@ -277,17 +279,17 @@ json_parser=JsonOutputFunctionsParser()
 
 
 
-from langchain.vectorstores.pgvector import DistanceStrategy
-#chain for extracting birthdays from queries and retrieved documents
-db_conf=settings.DATABASES['default']
-user=db_conf['USER']
-password=db_conf['PASSWORD']
-host=db_conf['HOST']
-port=db_conf['PORT']
-dbname=db_conf['NAME']
+# from langchain.vectorstores.pgvector import DistanceStrategy
+# #chain for extracting birthdays from queries and retrieved documents
+# db_conf=settings.DATABASES['default']
+# user=db_conf['USER']
+# password=db_conf['PASSWORD']
+# host=db_conf['HOST']
+# port=db_conf['PORT']
+# dbname=db_conf['NAME']
 
-COLLECTION_NAME='events'
-CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
+# COLLECTION_NAME='events'
+# CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
 # db = PGVector(
 #     collection_name=COLLECTION_NAME,
 #     connection_string=CONNECTION_STRING,
@@ -298,16 +300,15 @@ CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbn
 
 
 # db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
-
+from .models import Events
 def pgretriever(text,embeddings=embeddings):
     embedding=embeddings.embed_query(text=text)
     queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.2).order_by('distance')[:1]
     if not queryset:
         return []
     else:
-        serialized=EventsSerializer(queryset)
-        return {'retrieved':serialized.data['event_en'],
-                'date':serialized.data['date']                
+        return {'retrieved':queryset[0].event_en,
+                'date':queryset[0].date                
                 }
 
 

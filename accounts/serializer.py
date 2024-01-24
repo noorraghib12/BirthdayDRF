@@ -3,10 +3,13 @@ from .models import *
 from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import auth
+
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields =  ['email','password','queries']
+        fields =  ['email','password']
 
 
 
@@ -16,7 +19,7 @@ class RegisterSerializer(serializers.Serializer):
     password_confirm=serializers.CharField()
     def validate(self,data):
         if User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError('Username or Email is taken')
+            raise serializers.ValidationError('Email is taken')
         elif data['password']!=data['password_confirm']:
             raise serializers.ValidationError('Passwords did not match!')
         else:
@@ -31,22 +34,30 @@ class RegisterSerializer(serializers.Serializer):
 
 
 
+
 class LoginSerializer(serializers.Serializer):
-    username=serializers.CharField()
+    email=serializers.EmailField()
     password=serializers.CharField()
+
+
     def validate(self,data):
         if not User.objects.filter(email=data['email']).exists():
             raise serializers.ValidationError(f"Account not found.")
         return data
     
     def get_jwt_token(self,data):
-        user = auth.authenticate(username=data['username'],password=data['password'])
+        user = auth.authenticate(email=data['email'],password=data['password'])
         if not user:
             return {'message':"Invalid Credentials",'data':{}}
         
-        refresh=user.tokens()
+        refresh=RefreshToken.for_user(user)
         return  {
             'messsage':'Login Success!',
-            'data':refresh
+            'data':{
+                'token':{
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    }
+                }
             }
 

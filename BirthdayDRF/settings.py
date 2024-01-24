@@ -27,7 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
+AUTH_USER_MODEL = 'accounts.User'
 # Application definition
 SITE_ID=1
 
@@ -40,19 +40,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'accounts'
     'birthday_bot',
+    
 ]
 
 
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "SCOPE": [
-            "profile",
-            "email",
-        ],
-        "AUTH_PARAMS":{'access_type':'online'}
-    }
-}   
+# SOCIALACCOUNT_PROVIDERS = {
+#     "google": {
+#         "SCOPE": [
+#             "profile",
+#             "email",
+#         ],
+#         "AUTH_PARAMS":{'access_type':'online'}
+#     }
+# }   
 
 
 
@@ -152,6 +154,12 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=3)
+}
+
+
 
 # AUTHENTICATION_BACKENDS = {
 #     "django.contrib.auth.backends.ModelBackend",

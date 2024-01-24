@@ -6,37 +6,24 @@ from django.dispatch import receiver
 import uuid
 from .manager import UserManager 
 import datetime
-from rest_framework_simplejwt.tokens import RefreshToken
-
-AUTH_PROVIDERS = {'google': 'google', 'email': 'email'}
-
 
 
 class User(AbstractUser):
+    username=None
+    if not email:
+        raise ValueError("Email is required for registration!")
     email = models.EmailField(unique=True)
-    auth_provider = models.CharField(
-        max_length=255, blank=False,
-        null=False, default=AUTH_PROVIDERS.get('email'))
+    access_token = models.CharField(max_length=200 , default=None, blank=True)
+    
 
     # USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['email']
     
     objects = UserManager()
     
-    def name(self):
-        return self.first_name + ' ' + self.last_name
 
     def __str__(self):
         return self.email
-    
-    def tokens(self):
-        refresh = RefreshToken.for_user(self)
-        return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token)
-        }
-
-
 
 
 

@@ -13,19 +13,22 @@ class RegisterAPI(APIView):
 
     def post(self,request):
         data=request.data
-        verification_serialized=RegisterSerializer(data=data)
-        if verification_serialized.is_valid():
-            verification_serialized.save()
+        registration_serialized=RegisterSerializer(data=data)
+        if registration_serialized.is_valid():
+            registration_serialized.save()
+            send_otp_via_email(email=registration_serialized.data['email'])
             return Response({
                 'status': 200,
-                'message': "Registration Complete!",
+                'message': "Registration Partially Complete, Please check registered email for account verification",
                 'data' : {}
             })
     
         return Response({
+            'status': 400,
             'message': "Something went wrong.",
-            'data' : verification_serialized.errors
-        },status=status.HTTP_400_BAD_REQUEST)
+            'data' : registration_serialized.errors
+        })
+
 
 
 
@@ -35,6 +38,7 @@ class LoginView(APIView):
 
         if not serializer.is_valid():
             return Response({
+                'status':400,
                 'data':serializer.errors,
                 'message':"Something went wrong!"
             })
@@ -47,4 +51,58 @@ class LoginView(APIView):
 
         response=serializer.get_jwt_token(data=request.data)
 
-        return Response(response,status=status.HTTP_202_ACCEPTED)
+        return Response(response,status=200)
+
+
+# class ProfileWriteview(APIView):
+#     """ CRUD OPERATIONS FOR USER PROFILE"""
+
+
+#     permission_classes = [IsAuthenticated]
+#     authentication_classes = [JWTAuthentication]        
+#     def post(self,request):
+#         try:
+#             data=request.data.copy()
+#             data['user'] = request.user.id
+#             serializer=ProfileSerializer(data=data)
+#             if not serializer.is_valid():
+#                 serializer.save() 
+#                 return Response({
+#                     'status':400,
+#                     'message':"Ooops, something went wrong!",
+#                     'data': serializer.errors
+#                 })
+#             else:
+#                 return Response({
+#                     'status':200,
+#                     'message':"Profile data created!",
+#                     'data': serializer.data
+#                 })
+#         except Exception as e:
+#             print(e)
+#             return Response({
+#                 'status': 400,
+#                 'message': "Ooops something went wrong",
+#                 'data':{'error':e}
+#             })
+
+#     def patch(self,request):
+#         data=request.data.copy()
+#         data['user']=request.user.id
+#         serializer=ProfileSerializer(data=data,partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({
+#                 "status":201,
+#                 "message":"Profile information has been updated!", 
+#                 "data":serializer.data
+#             })
+#         else:
+#             return Response({
+#                 "status":400,
+#                 'message':"Sorry, there were some issues fetching the data!",
+#                 'data':serializer.data
+#             })
+
+
+

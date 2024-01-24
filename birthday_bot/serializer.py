@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import User
+from accounts.serializer import UserSerializer
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 import uuid
@@ -12,7 +13,6 @@ from BirthdayDRF import settings
 from PyPDF2 import PdfReader
 from rest_framework import serializers
 from .models import *
-from .server_utils import get_main_chain
 
 
 def get_upload_path(filename):
@@ -44,7 +44,7 @@ class UploadSerializer(serializers.Serializer):
         validated_data.get('file').save(f_path)
         return validated_data
 
-chain=get_main_chain()
+
 
 
 class EventsSerializer(serializers.ModelSerializer):
@@ -56,18 +56,12 @@ class EventsSerializer(serializers.ModelSerializer):
         }
 
 class QuerySerializer(serializers.ModelSerializer):
-    user=UserSerializer()
     class Meta:
         model=UserQuery
         fields = ['user','relation','question','answer']
 
-    def validate(self,data):
-        data['answer']=data.get('answer',None)
-        if data['answer'] is None:
-            data['answer']=chain.invoke(data['question'])
-        return data
-    
-                     
-            
+
+
+
             
 
