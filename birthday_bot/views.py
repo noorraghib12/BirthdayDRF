@@ -16,6 +16,9 @@ from rest_framework.response import Response
 from pgvector.django import CosineDistance
 from .server_utils import get_main_chain, embeddings,pgretriever
 from accounts.serializer import UserSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 def get_upload_path(filename):
     uploads_path=os.path.join(settings.STATIC_URL[1:],"uploads")
     os.makedirs(uploads_path,exist_ok=True)
@@ -89,15 +92,17 @@ class QueryAPI(generics.ListCreateAPIView):
     
     def create(self,request,*args,**kwargs):
         data=request.data.copy()
+        data['answer']=self.chain.invoke(data['question'])
+        data['user']=request.user.id
         serialized=self.serializer_class(data=data)
-        answer=self.chain.invoke(serialized.data['question'])
-        serialized.data['user']=request.user.id
-        serialized.data['answer']=answer
         serialized.is_valid(raise_exception=True)
+        
+        # serialized.data['user']=request.user.id
+        # serialized.data['answer']=answer
         serialized.save()
         return response.Response(
             data={
-                    "answer":answer,
+                    "answer":serialized.data['answer'],
                     "relation":serialized.data['relation']
                 },
             status=status.HTTP_201_CREATED

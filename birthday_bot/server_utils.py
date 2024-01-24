@@ -243,8 +243,9 @@ def get_date(event,mode):
 
 
 def get_final_date(d_):
-    if not d_['event_truth']:
+    if (not d_['event_truth']) or (not d_['event_date']):
         return "Sorry, this event never occurred, or it is not within our event database"
+    
     if d_['before_after']=='after':
         return (d_['event_date']+d_['delta']).strftime("%B %d, %Y") 
     else:
@@ -305,7 +306,7 @@ def pgretriever(text,embeddings=embeddings):
     embedding=embeddings.embed_query(text=text)
     queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.2).order_by('distance')[:1]
     if not queryset:
-        return []
+        return {'retrieved':[],'date':None}
     else:
         return {'retrieved':queryset[0].event_en,
                 'date':queryset[0].date                
@@ -317,12 +318,12 @@ def get_main_chain(retriever=pgretriever):
     event_bool_chain= event_verify_prompt | llm | bool_parse
     chain2= json_parser | RunnableMap(
         {
-            'retrieved': lambda x: retriever(text=x['event']),
+            'chain_response': lambda x: retriever(text=x['event']),
             "queried": lambda x: x['event'],
             'delta': lambda x: convert2days(x['time_span']),
             'before_after':lambda x:x['before_after']    
         }
-    ) | RunnablePassthrough.assign(event_date=lambda x:x['retrieved']['date'],retrieved=lambda x:x['retrieved']['retrieved']) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
+    ) | RunnablePassthrough.assign(event_date=lambda x:x['chain_response']['date'],retrieved=lambda x:x['chain_response']['retrieved']) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
 
 
 

@@ -16,10 +16,10 @@ class RegisterAPI(APIView):
         registration_serialized=RegisterSerializer(data=data)
         if registration_serialized.is_valid():
             registration_serialized.save()
-            send_otp_via_email(email=registration_serialized.data['email'])
+            #send_otp_via_email(email=registration_serialized.data['email'])
             return Response({
                 'status': 200,
-                'message': "Registration Partially Complete, Please check registered email for account verification",
+                'message': "Registration Complete!",
                 'data' : {}
             })
     

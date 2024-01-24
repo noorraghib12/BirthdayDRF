@@ -10,14 +10,12 @@ import datetime
 
 class User(AbstractUser):
     username=None
-    if not email:
-        raise ValueError("Email is required for registration!")
     email = models.EmailField(unique=True)
-    access_token = models.CharField(max_length=200 , default=None, blank=True)
+    access_token = models.CharField(max_length=200 ,blank=True)
     
 
-    # USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['email']
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
     
     objects = UserManager()
     
