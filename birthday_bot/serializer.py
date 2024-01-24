@@ -12,7 +12,7 @@ from BirthdayDRF import settings
 from PyPDF2 import PdfReader
 from rest_framework import serializers
 from .models import *
-from server_utils import get_main_chain
+from .server_utils import get_main_chain
 
 
 def get_upload_path(filename):

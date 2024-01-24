@@ -34,18 +34,21 @@ def save_uploaded_file(file: InMemoryUploadedFile, destination: str):
 
 class FileUploadView(views.APIView):
     parser_classes = (parsers.MultiPartParser,)
-
+    serializer_class=EventsSerializer
     def post(self, request, format=None):
         doc_paths=[] 
         for file in request.FILES.getlist('file'):
             up_dir=get_upload_path(file.name)
             save_uploaded_file(file=file,destination=up_dir)
             doc_paths.append(up_dir)
-            text=regex_text_splitter(doc_paths)
-            
+        events=regex_text_splitter(doc_paths)
+        serializer=self.serializer_class(data=events,many=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()            
 
         # do some stuff with uploaded file
-        return response.Response(text,status=204)
+        return response.Response(serializer.data,status=204)
+
 
 
 

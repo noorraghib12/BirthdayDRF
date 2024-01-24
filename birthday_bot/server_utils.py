@@ -30,13 +30,16 @@ from langchain_community.document_loaders import Docx2txtLoader
 # os.environ["GOOGLE_APPLICATION_CREDENTIALS"]=r'google_cred.json'
 from google.cloud import translate_v2 
 from itertools import repeat
-from bltk.langtools import Tokenizer as BnTokenizer
 import regex as re
 import concurrent
 from django.conf import settings
 translate_model=translate_v2.Client()
-bn_tokenizer = BnTokenizer()
+
 embeddings=OpenAIEmbeddings() 
+import asyncio
+
+
+
 llm = ChatOpenAI(model_name="gpt-3.5-turbo-1106")
 
 
@@ -97,9 +100,9 @@ def para_translate(para):
 
 
 
-def events_vectorized(event_list):
+async def events_vectorized(event_list):
             event_en_list=[i['event_en'] for i in event_list]
-            event_vectors=embeddings.embed_documents(event_en_list)
+            event_vectors= await embeddings.aembed_documents(event_en_list)
             for d_,vector in zip(event_list,event_vectors):
                 d_['vector']=vector
             return event_list    
@@ -143,8 +146,9 @@ def list_from_paragraph(response):
             )
                 
     
-            
-    return events_vectorized(event_list)
+    print(event_list)
+    res=asyncio.run(events_vectorized(event_list))
+    return res
         
 
 
@@ -187,15 +191,15 @@ def regex_text_splitter(pdf_path='test_grey (1).pdf', deli_='\n\n'):
     
 
 
-class eventBoolRetrieve(BaseModel):
-    event_truth: bool =Field(description="Validatition of whether the Alleged Event ever truly occured according to the given list of Historical Events")
-    event_date: datetime =Field(description= "The date fetched from the retrieved event")
+# class eventBoolRetrieve(BaseModel):
+#     event_truth: bool =Field(description="Validatition of whether the Alleged Event ever truly occured according to the given list of Historical Events")
+#     event_date: datetime =Field(description= "The date fetched from the retrieved event")
     
-    @model_validator(mode='after')
-    def vali_date(self):
-        if self.event_truth==False:
-            self.event_date=None
-        return self
+#     @model_validator(mode='after')
+#     def vali_date(self):
+#         if self.event_truth==False:
+#             self.event_date=None
+#         return self
 
 
 event_verify_prompt=PromptTemplate(template="""Each sentence is a specific historical event in the Historical Events. Given the list of historical events, determine if the alleged event ever truly occurred. Answer only in boolean format. If you're not sure, just reply with 'False'.
@@ -284,30 +288,40 @@ dbname=db_conf['NAME']
 
 COLLECTION_NAME='events'
 CONNECTION_STRING = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
-db = PGVector(
-    collection_name=COLLECTION_NAME,
-    connection_string=CONNECTION_STRING,
-    embedding_function=embeddings,
-    distance_strategy = DistanceStrategy.COSINE,
-)
+# db = PGVector(
+#     collection_name=COLLECTION_NAME,
+#     connection_string=CONNECTION_STRING,
+#     embedding_function=embeddings,
+#     distance_strategy = DistanceStrategy.COSINE,
+# )
 
 
 
 # db=Chroma(persist_directory=vectorstore_dir,embedding_function=embeddings)
 
+def pgretriever(text,embeddings=embeddings):
+    embedding=embeddings.embed_query(text=text)
+    queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.2).order_by('distance')[:1]
+    if not queryset:
+        return []
+    else:
+        serialized=EventsSerializer(queryset)
+        return {'retrieved':serialized.data['event_en'],
+                'date':serialized.data['date']                
+                }
 
-def get_main_chain():
-    retriever=db.as_retriever(search_type='similarity_score_threshold',search_kwargs={'score_threshold':0.75, 'k':1})
+
+def get_main_chain(retriever=pgretriever):
     model=ChatOpenAI().bind(functions=functions) 
     event_bool_chain= event_verify_prompt | llm | bool_parse
     chain2= json_parser | RunnableMap(
         {
-            'retrieved': lambda x: get_relevant_documents(x['event']),
+            'retrieved': lambda x: retriever(text=x['event']),
             "queried": lambda x: x['event'],
             'delta': lambda x: convert2days(x['time_span']),
             'before_after':lambda x:x['before_after']    
         }
-    ) | RunnablePassthrough.assign(event_date=lambda x:get_date(x['retrieved'],mode='db')) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
+    ) | RunnablePassthrough.assign(event_date=lambda x:x['retrieved']['date'],retrieved=lambda x:x['retrieved']['retrieved']) | RunnablePassthrough.assign(event_truth=event_bool_chain)| get_final_date
 
 
 
