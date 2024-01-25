@@ -89,17 +89,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'BirthdayDRF.wsgi.application'
 
 import os
-import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
 DATABASES = {
    'default': {
        'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'birthday1',
+       'NAME': os.environ['POSTGRES_DB'],
        'USER': 'postgres',
        'PASSWORD': os.environ['POSTGRES_PASS'],
        'HOST': 'localhost',
