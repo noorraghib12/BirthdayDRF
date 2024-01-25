@@ -8,6 +8,9 @@ EXPOSE 8000
 EXPOSE 5432
 
 
-ENTRYPOINT [ "python" ]
+RUN python manage.py makemigrations accounts birthday_bot
+RUN python manage.py migrate
 
+
+ENTRYPOINT [ "python" ]
 CMD ["manage.py","runserver","--host","0.0.0.0","--port","8000"]
