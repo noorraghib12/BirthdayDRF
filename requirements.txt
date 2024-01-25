@@ -1,0 +1,12 @@
+langchain==0.0.349
+langchain-community==0.0.1
+langchain-core==0.0.13
+langsmith==0.0.69
+pydantic==2.5.2
+pydantic_core==2.14.5
+tiktoken==0.5.2
+django
+djangorestframework
+djangorestframework-simplejwt
+pgvector
+google-cloud-translate
