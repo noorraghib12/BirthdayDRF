@@ -3,8 +3,8 @@ name: vectorexample
 services:
   postgres:
     build:
-      context: ./postgres
-      dockerfile: postgres.Dockerfile
+      context: ./drf_pgvector
+      dockerfile: Dockerfile
     ports:
       - "5432:5432"
     volumes:
@@ -18,12 +18,10 @@ services:
       - POSTGRES_DB=vectorexample
       - POSTGRES_HOST_AUTH_METHOD=trust
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
       - "5432:5432"
-    
-    environment:
-     - OPENAI_API_KEY=
-     - POSTGRES_PASSWORD=postgres
     
