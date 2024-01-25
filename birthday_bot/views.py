@@ -63,7 +63,7 @@ class GetRandomCalenderEvent(views.APIView):
         try:
             events_per_day = 2
 
-            events = Event.objects.annotate(
+            events = Events.objects.annotate(
                 date_truncated=TruncDate('date'),
                 event_random=Random(),
                 event_rank=Window(
