@@ -110,8 +110,8 @@ class QueryAPI(generics.ListCreateAPIView):
 
 
     def list(self,request, *args, **kwargs):
-        list_queries=queryset.filter(user=request.user).order_by('-created_at')[:10]
-        serialized=serializer_class(list_queries)
+        list_queries=self.queryset.filter(user=request.user).order_by('-created_at')[:10]
+        serialized=self.serializer_class(list_queries)
         return response.Response(serialized.data,status=status.HTTP_202_ACCEPTED)
 
 
