@@ -217,13 +217,21 @@ bool_parse=BooleanOutputParser(true_val='True',false_val='False')
 
 
 
-def convert2days(string):
+# def convert2days(string):
+#     days_dict={'month':30,'week':7,'year':365,'day':1}
+#     date_pat=re.compile(r'((?P<year>\d* )(?:year|YEAR|years|YEARS|))?(?: and |, | )?((?P<month>\d* )(?:month|MONTH|months|MONTHS))?(?: and |, | )?((?P<week>\d* )(?:week|WEEK|weeks|WEEKS))?(?: and |, | )?((?P<day>\d* )(?:day|DAY|days|DAYS|))?')
+#     regx=re.match(date_pat,string)
+#     res={key:int(value) for key,value in regx.groupdict().items() if value is not None}
+#     tot_days=sum([res[key]*days_dict[key] for key in res.keys()])
+#     return timedelta(days=tot_days)
+
+def convert2days(res):
     days_dict={'month':30,'week':7,'year':365,'day':1}
-    date_pat=re.compile(r'((?P<year>\d* )(?:year|YEAR|years|YEARS|))?(?: and |, | )?((?P<month>\d* )(?:month|MONTH|months|MONTHS))?(?: and |, | )?((?P<week>\d* )(?:week|WEEK|weeks|WEEKS))?(?: and |, | )?((?P<day>\d* )(?:day|DAY|days|DAYS|))?')
-    regx=re.match(date_pat,string)
-    res={key:int(value) for key,value in regx.groupdict().items() if value is not None}
     tot_days=sum([res[key]*days_dict[key] for key in res.keys()])
     return timedelta(days=tot_days)
+
+
+
 
 def get_date(event,mode):
     if mode=='db' and event:
@@ -242,21 +250,28 @@ def get_date(event,mode):
 
 
 def get_final_date(d_):
-    if (not d_['event_truth']) or (not d_['event_date']):
-        return "Sorry, this event never occurred, or it is not within our event database"
-    
+    if (not d_['event_truth']):
+        return "Sorry, this event never occurred, or it is not within our event database."
+    elif (not d_['event_date']):
+        return "Sorry, the timespan you provided was probably not in proper format. Please try again!"
     if d_['before_after']=='after':
         return (d_['event_date']+d_['delta']).strftime("%B %d, %Y") 
     else:
         return (d_['event_date']-d_['delta']).strftime("%B %d, %Y")
 
 
+class TimeSpan(BaseModel):
+    day:int= Field(description="Information related to days.")
+    month:int= Field(description="Information related to months.")
+    year:int=Field(description="Information related to years.")
+    week:int=Field(description="Information related to weeks.")
+
 
 
 #main base class for fetched event data
 class eventDetails(BaseModel):
     ''' Used to extract important information related to an individual's birthday'''
-    time_span:str = Field(description="Timespan from the event that occurs before or after the birth of person as mentioned in the query")
+    time_span:TimeSpan = Field(description="Timespan from the event that occurs before or after the birth of person as mentioned in the query. Only extract information with given units of time (example: '5 days','10 months,'25 years',etc), never any explicit dates like '1966,2001'.")
     before_after:str =Field(description="Whether the birth of the person in question happened before or after the event")
     event: str = Field(description="Description of the event related to the person's birthday")
 
@@ -270,7 +285,7 @@ functions=[
 ]
 # main conversation prompt
 prompt=ChatPromptTemplate.from_messages([
-    ('system',"You are an assistant to a confectionary store currently working on finding people's birthdays based on certain events that happened before or after them. Refer to 'event_details' function to extract information whenever you are asked about inferring someone's birthdays. Answer conventional questions with conventional replies. Do not make up false information. If you dont know something, simply say you dont know. If you cant find enough context to extract required information from birth date related queries, say that there isnt enough context to infer birthday. In the case you cant get all the required parameters during function calls, say there wasnt enough context."),
+    ('system',"You are an assistant to a confectionary store currently working on finding people's birthdays based on certain events that happened before or after them. Refer to 'event_details' function to extract information whenever you are asked about inferring someone's birthdays. In the case you cant get all the required parameters during function calls, dont make the function call and be specific about which parameter you need more information on in your given contexts. Answer conventional questions with conventional replies. Do not make up false information. If you dont know something, simply say you dont know."),
     ('user', "{statement}")]
 )
 
