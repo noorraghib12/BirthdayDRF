@@ -5,15 +5,10 @@ COPY ./. /usr/src/app/.
 RUN pip install -r requirements.txt
 
 
-#port for django app
-EXPOSE 8000
-#port for pgvector
-EXPOSE 6001         
-
-
-
 RUN python manage.py makemigrations accounts birthday_bot
 
+
+EXPOSE 8000        
 
 ENTRYPOINT [ "python" ]
 CMD ["manage.py","migrate"]

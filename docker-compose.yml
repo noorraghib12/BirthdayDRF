@@ -1,27 +1,28 @@
-version: "3"
-name: vectorexample 
 services:
-  postgres:
-    build:
-      context: ./drf_pgvector
-      dockerfile: Dockerfile
+  pgvector:
+    image: ankane/pgvector:latest
+    restart: always
     ports:
-      - "5432:5432"
+      - 5432:5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/vector_extension.sql:/docker-entrypoint-initdb.d/0-vector_extension.sql
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./drf_pgvector/postgres/vector_extension.sql:/docker-entrypoint-initdb.d/vector_extension.sql
       # - ./postgres/0-vector-extension.sh:/docker-entrypoint-initdb.d/0-vector-extension.sh
 
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=vectorexample
-      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_USER=birthday_user
+      - POSTGRES_PASSWORD=mypass1234
+      - POSTGRES_DB=birthday
   web:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
-      - "5432:5432"
-    
+      - 8000:8000
+    env_file:
+      - .env
+    # command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - pgvector

@@ -50,7 +50,7 @@ class FileUploadView(views.APIView):
         serializer.save()            
 
         # do some stuff with uploaded file
-        return response.Response(serializer.data,status=204)
+        return response.Response(serializer.data,status=status.HTTP_202_ACCEPTED)
 
 
 

@@ -102,9 +102,9 @@ def para_translate(para):
 
 
 
-async def events_vectorized(event_list):
+def events_vectorized(event_list):
             event_en_list=[i['event_en'] for i in event_list]
-            event_vectors= await embeddings.aembed_documents(event_en_list)
+            event_vectors= embeddings.embed_documents(event_en_list)
             for d_,vector in zip(event_list,event_vectors):
                 d_['embedding']=vector
             return event_list    
@@ -125,31 +125,30 @@ def list_from_paragraph(response):
         date_=inp_list_translated[0]['translatedText']
         try:
             date_= datetime.strptime(date_.strip(),"%B %d, %Y").date()
-        except ValueError:
-            continue
-        event_bn=[i['input'] for i in inp_list_translated[1:]]
-        event_en=[i['translatedText'] for i in inp_list_translated[1:]]
-        for i in range(len(event_bn)):
-            
-        # date_,events_en,events_bn=inp_list_translated['translatedText'][0],inp_list_translated['translatedText'][1:],inp_list_translated['input'][1:]
-
-
-        
-        
-        # date_,event_en=split_date_text(para['translatedText'])
-        # event_en=[i for i in event_en.split('.') if len(i)!=0]
-        # event_bn=fetch_bangla_text(para['input'])[1]
-        # event_bn_list=split_bengali_sentences(event_bn)
-            event_list.append(
-                {'date':date_,
-                'event_bn':event_bn[i],
-                'event_en':event_en[i],
-                }
-            )
+            event_bn=[i['input'] for i in inp_list_translated[1:]]
+            event_en=[i['translatedText'] for i in inp_list_translated[1:]]
+            for i in range(len(event_bn)):
                 
+            # date_,events_en,events_bn=inp_list_translated['translatedText'][0],inp_list_translated['translatedText'][1:],inp_list_translated['input'][1:]
+
+
+            
+            
+            # date_,event_en=split_date_text(para['translatedText'])
+            # event_en=[i for i in event_en.split('.') if len(i)!=0]
+            # event_bn=fetch_bangla_text(para['input'])[1]
+            # event_bn_list=split_bengali_sentences(event_bn)
+                event_list.append(
+                    {'date':date_,
+                    'event_bn':event_bn[i],
+                    'event_en':event_en[i],
+                    }
+                )
+        except:
+            pass        
     
     print(event_list)
-    res=asyncio.run(events_vectorized(event_list))
+    res=events_vectorized(event_list)
     return res
         
 
