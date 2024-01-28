@@ -219,7 +219,7 @@ bool_parse=BooleanOutputParser(true_val='True',false_val='False')
 
 def convert2days(string):
     days_dict={'month':30,'week':7,'year':365,'day':1}
-    date_pat=re.compile(r'((?P<year>\d* )(?:year|YEAR|years|YEARS|))?(?: and |, | )?((?P<month>\d* )(?:month|MONTH|months|MONTHS))?(?: and |, | )?((?P<week>\d* )(?:week|WEEK|weeks|WEEKS))?(?: and |, | )?((?P<day>\d* )(?:day|DAY|days|DAYS|))')
+    date_pat=re.compile(r'((?P<year>\d* )(?:year|YEAR|years|YEARS|))?(?: and |, | )?((?P<month>\d* )(?:month|MONTH|months|MONTHS))?(?: and |, | )?((?P<week>\d* )(?:week|WEEK|weeks|WEEKS))?(?: and |, | )?((?P<day>\d* )(?:day|DAY|days|DAYS|))?')
     regx=re.match(date_pat,string)
     res={key:int(value) for key,value in regx.groupdict().items() if value is not None}
     tot_days=sum([res[key]*days_dict[key] for key in res.keys()])
