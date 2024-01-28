@@ -95,8 +95,9 @@ class QueryAPI(generics.ListCreateAPIView):
         data['answer']=self.chain.invoke(data['question'])
         data['user']=request.user.id
         serialized=self.serializer_class(data=data)
-        serialized.is_valid(raise_exception=True)
-        
+        if not serialized.is_valid():
+            return response.Response(serialized.data,status=status.HTTP_400_BAD_REQUEST)
+            
         # serialized.data['user']=request.user.id
         # serialized.data['answer']=answer
         serialized.save()
@@ -119,8 +120,9 @@ class TextSuggestions(generics.ListAPIView):
     queryset=Events.objects.all()
     serializer_class=EventsSerializer
     embeddings=embeddings
-    def list(self,request,text,*args,**kwargs):
+    def list(self,request,*args,**kwargs):
         try:
+            text=request.data['text']
             embedding=self.embeddings.embed_query(translate_model.translate(text)['translatedText'])
             filter_1=self.queryset.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.60).order_by('distance')[:10]
             filter_2=self.queryset.filter(Q(event_en__contains=text) | Q(event_bn__contains=text)).all()

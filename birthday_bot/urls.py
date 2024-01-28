@@ -30,6 +30,6 @@ urlpatterns = [
     
     path('upload/',FileUploadView.as_view()),
     # path('accounts/',include('allauth.urls'))
-    path('text_suggest/<str:text>/',TextSuggestions.as_view()),
+    path('text_suggest/',TextSuggestions.as_view()),
     path('query/',QueryAPI.as_view())
 ]
