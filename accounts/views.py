@@ -5,7 +5,7 @@ from .serializer import *
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
+from rest_framework import status
 class RegisterAPI(APIView):
     """
     REGISTRATION API
@@ -29,7 +29,26 @@ class RegisterAPI(APIView):
             'data' : registration_serialized.errors
         })
 
-
+class GoogleLoginView(APIView):    
+    queryset=User.objects.all()
+    def post(self,request):
+        email=request.data.get('email',None)
+        user_=self.queryset.filter(email=email)
+        if user_.exists():
+            user=user_.first()
+            refresh=RefreshToken.for_user(user)
+            return  {
+                'messsage':'Login Success!',
+                'data':{
+                    'token':{
+                        'refresh': str(refresh),
+                        'access': str(refresh.access_token),
+                        }
+                    }
+                }
+        else:
+            return Response({"message":"User not in database!"},status=400)
+        
 
 
 class LoginView(APIView):

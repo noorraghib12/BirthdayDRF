@@ -13,4 +13,5 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('register/',RegisterAPI.as_view()),
     path('login/',LoginView.as_view()),
+    path('google_login/',GoogleLoginView.as_view())
 ]
