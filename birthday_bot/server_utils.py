@@ -271,7 +271,7 @@ class TimeSpan(BaseModel):
 #main base class for fetched event data
 class eventDetails(BaseModel):
     ''' Used to extract important information related to an individual's birthday'''
-    time_span:TimeSpan = Field(description="Timespan from the event that occurs before or after the birth of person as mentioned in the query. Only extract information with given units of time (example: '5 days','10 months,'25 years',etc), never any explicit dates like '1966,2001'.")
+    time_span:TimeSpan = Field(description="Timespan from the event that occurs before or after the birth of person as mentioned in the query. Only extract information with given units of time (example: '5 days','10 months,'25 years',etc), never any explicit dates like '1966,2001'. In the case the guy was born on the same date as the event, just pass 0 to all the required units of time")
     before_after:str =Field(description="Whether the birth of the person in question happened before or after the event")
     event: str = Field(description="Description of the event related to the person's birthday")
 
@@ -318,7 +318,7 @@ json_parser=JsonOutputFunctionsParser()
 from .models import Events
 def pgretriever(text,embeddings=embeddings):
     embedding=embeddings.embed_query(text=text)
-    queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.2).order_by('distance')[:1]
+    queryset=Events.objects.alias(distance=CosineDistance('embedding', embedding)).filter(distance__lt=0.3).order_by('distance')[:1]
     if not queryset:
         return {'retrieved':[],'date':None}
     else:

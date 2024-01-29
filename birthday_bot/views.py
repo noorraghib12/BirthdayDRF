@@ -116,11 +116,11 @@ class QueryAPI(generics.ListCreateAPIView):
         return response.Response(serialized.data,status=status.HTTP_202_ACCEPTED)
 
 
-class TextSuggestions(generics.ListAPIView):
+class TextSuggestions(views.APIView):
     queryset=Events.objects.all()
     serializer_class=EventsSerializer
     embeddings=embeddings
-    def list(self,request,*args,**kwargs):
+    def post(self,request):
         try:
             text=request.data['text']
             embedding=self.embeddings.embed_query(translate_model.translate(text)['translatedText'])
@@ -131,7 +131,7 @@ class TextSuggestions(generics.ListAPIView):
             serialized=self.serializer_class(combined,many=True)
             return response.Response(serialized.data,status=status.HTTP_200_OK)
         except Exception as e:
-            raise e
+            raise response.Response({'data':e},status.HTTP_400_BAD_REQUEST)
 
 
 # class UserQueryAPI(generics.CreateAPIView):
