@@ -285,7 +285,7 @@ functions=[
 ]
 # main conversation prompt
 prompt=ChatPromptTemplate.from_messages([
-    ('system',"You are an assistant to a confectionary store currently working on finding people's birthdays based on certain events that happened before or after them. Refer to 'event_details' function to extract information whenever you are asked about inferring someone's birthdays. In the case you cant get all the required parameters during function calls, dont make the function call and be specific about which parameter you need more information on in your given contexts. Answer conventional questions with conventional replies. Do not make up false information. If you dont know something, simply say you dont know."),
+    ('system',"You are an assistant to a confectionary store currently working on finding people's birthdays based on certain events that happened before or after them. All queries sent you will be related to finding out birthdates of people whether it is explicitly mentioned or not. Refer to 'event_details' function to extract information required to find out birthdates. Do not make up false information. If you dont know something, simply say you dont know."),
     ('user', "{statement}")]
 )
 
